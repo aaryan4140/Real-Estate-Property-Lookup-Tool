@@ -44,6 +44,8 @@ The tool enables users to enter a property address, queries Gemini to retrieve f
 Real_State/
 ├── app.py                      # Streamlit web application frontend and state manager
 ├── requirements.txt            # Python dependencies (Streamlit, Google GenAI, python-dotenv)
+├── .env.example                # Environment variables template (copy to .env)
+├── .gitignore                  # Git exclusions (.env, private docs, outputs, cache)
 ├── llm/
 │   └── gemini_client.py        # Official Google GenAI Client wrapper & robust JSON decoder
 ├── prompts/
@@ -96,35 +98,60 @@ Real_State/
 
 ---
 
-## 🛠️ Installation & Setup
+## 🛠️ Step-by-Step Installation & Setup
 
-### Prerequisites
-- Python 3.10+
-- Google Gemini API key configured in `.env` (`GEMINI_API_KEY=your_key`)
+Follow these exact steps to set up and run the project locally:
 
-### Setup Virtual Environment
+### 1. Clone the Repository
+```bash
+git clone https://github.com/aaryan4140/Real-Estate-Property-Lookup-Tool.git
+cd Real-Estate-Property-Lookup-Tool
+```
+
+### 2. Create and Activate Virtual Environment
 ```bash
 python3 -m venv venv
 source venv/bin/activate
+```
+*(On Windows: `venv\Scripts\activate`)*
+
+### 3. Install Dependencies
+```bash
 pip install -r requirements.txt
 ```
 
-### Running the Application
-Launch the Streamlit web application:
+### 4. Configure Environment Variables (`.env.example` ➔ `.env`)
+> [!IMPORTANT]
+> For security reasons, the actual `.env` file containing private API keys is **excluded from Git tracking via `.gitignore`** and is not committed to the repository.
+> 
+> A template file named [`.env.example`](file:///.env.example) is provided. You **must create your local `.env` file** by copying it:
+
+```bash
+cp .env.example .env
+```
+
+Now, open `.env` in any text editor and replace the placeholder with your actual **Google Gemini API Key**:
+```env
+GEMINI_API_KEY=AIzaSy...your_actual_api_key_here
+```
+*(You can generate a free Gemini API key at [Google AI Studio](https://aistudio.google.com/)).*
+
+### 5. Run the Application
+Launch the interactive Streamlit dashboard:
 ```bash
 streamlit run app.py
 ```
 
-Once running, navigate to the URL displayed in the terminal (typically `http://localhost:8501`) in your browser.
+Once running, the application will be accessible in your web browser at:
+`http://localhost:8501`
 
 ---
 
-## 💻 Usage
+## 💻 How to Use
 
-1. Open the application in your browser.
-2. Enter a property address in the input field (e.g., `2200 North Loop West, Houston, TX 77018` or `600 Montgomery St, San Francisco, CA 94111`).
-3. Click **Search**.
-4. Review the structured Markdown report generated on screen.
-5. Use the download buttons to export the data:
-   - **📥 Download JSON:** Full raw JSON object matching the 89-field schema.
-   - **📥 Download Markdown:** Clean human-readable report.
+1. **Enter Address:** Type any US property address into the search input (e.g. `2200 North Loop West, Houston, TX 77018`).
+2. **One-Click Testing:** Alternatively, click any of the **Quick Sample Lookup** buttons (Houston, San Francisco, Lubbock) to test benchmark properties instantly.
+3. **Analyze Dashboard:** Review the top **Hero KPI Cards** (Property Type, Building Area, Year Built, APN, Owner) and the **Assessment Record Completeness Meter**.
+4. **Read Report:** Scroll through the structured 13-section appraisal report.
+5. **Export Data:** Click **📥 Download JSON** for the full 89-field payload or **📥 Download Markdown** for the clean formatted dossier.
+
