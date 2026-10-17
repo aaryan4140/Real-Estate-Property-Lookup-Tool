@@ -1,0 +1,26 @@
+# Secrets & Environment Variables (Never commit keys)
+.env
+
+# Python Virtual Environment
+venv/
+env/
+ENV/
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+
+# Runtime Output & Billing Directories
+outputs/
+billing/
+
+# Excluded Specific Documents
+Documents/cad_real_estate_analysis.md
+Documents/CAD-only property lookup claude.txt
+Documents/Req.txt
