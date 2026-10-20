@@ -1,6 +1,8 @@
 import streamlit as st
+import pandas as pd
 
-from llm.gemini_client import search_property
+from llm.gemini_baseline import search_property_baseline
+from llm.serper_agent_client import search_property_serper
 from prompts.property_prompt import PROPERTY_SCHEMA_FIELDS
 from utils.formatter import format_as_markdown
 from utils.exporter import to_json_string, to_markdown_string, save_to_outputs
@@ -77,13 +79,24 @@ st.markdown(
         color: #f59e0b;
         border: 1px solid rgba(245, 158, 11, 0.3);
     }
+    .badge-engine {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 9999px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        background-color: rgba(59, 130, 246, 0.15);
+        color: #3b82f6;
+        border: 1px solid rgba(59, 130, 246, 0.3);
+        margin-bottom: 8px;
+    }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
 st.title("🏠 Property Intelligence & Appraisal Lookup")
-st.caption("Extract authoritative assessment data, parcel identifiers, and structural specs from public CAD records.")
+st.caption("Compare pure Gemini synthesis against live Google Search scraping & dual-agent compliance auditing.")
 
 # Preset Benchmark Properties for 1-click test
 SAMPLE_PROPERTIES = [
@@ -107,6 +120,18 @@ for i, (label, sample_addr) in enumerate(SAMPLE_PROPERTIES):
         st.session_state["trigger_search"] = True
         st.rerun()
 
+# Execution Mode Selector (Allows comparing Baseline vs Serper-Powered solution)
+engine_choice = st.radio(
+    "Choose Extraction & Audit Mode:",
+    [
+        "🌐 Serper-Powered (Live Google Search + Dual-Agent Compliance Audit)",
+        "🧠 Baseline Solution (Pure Gemini Synthesis)",
+        "⚖️ Side-by-Side Comparison (Run Both & Compare Directly)",
+    ],
+    index=0,
+    horizontal=True,
+)
+
 # Search Form Layout
 search_col1, search_col2 = st.columns([5, 1])
 with search_col1:
@@ -119,7 +144,7 @@ with search_col1:
 with search_col2:
     search_clicked = st.button("🔍 Search", type="primary", use_container_width=True)
 
-# Determine if search should execute (manual click or sample chip trigger)
+# Determine if search should execute
 should_search = search_clicked or st.session_state["trigger_search"]
 if st.session_state["trigger_search"]:
     st.session_state["trigger_search"] = False
@@ -127,26 +152,50 @@ if st.session_state["trigger_search"]:
 if should_search and not address:
     st.warning("Please enter a property address or select a sample above.")
 
+# Execute Selected Mode
 if should_search and address:
-    with st.spinner(f"Querying appraisal records for '{address}'..."):
-        try:
-            result = search_property(address)
-            save_to_outputs(result)
-            st.session_state["result"] = result
-            st.session_state["address"] = address
-        except ValueError as e:
-            st.error(f"Configuration error: {e}")
-        except Exception as e:
-            st.error(f"Search failed: {e}")
+    if "Side-by-Side" in engine_choice:
+        with st.spinner("⚖️ Running Dual Execution: Baseline Synthesis + Serper Google Dual-Agent Audit..."):
+            try:
+                res_baseline = search_property_baseline(address)
+                save_to_outputs(res_baseline, filename_prefix="property_report_baseline")
+                st.session_state["result_baseline"] = res_baseline
 
-# Render Dashboard if Result Exists
-if "result" in st.session_state:
-    result = st.session_state["result"]
-    addr = st.session_state.get("address", "Property")
+                res_serper = search_property_serper(address)
+                save_to_outputs(res_serper, filename_prefix="property_report_serper_audited")
+                st.session_state["result_serper"] = res_serper
 
-    st.divider()
+                st.session_state["mode"] = "comparison"
+                st.session_state["address"] = address
+            except Exception as e:
+                st.error(f"Execution failed: {e}")
 
-    # --- SUGGESTION 1: HERO KPI METRIC CARDS ---
+    elif "Serper-Powered" in engine_choice:
+        with st.spinner(f"🌐 Scraping live Google Search records via Serper & auditing with Agent 2 for '{address}'..."):
+            try:
+                res_serper = search_property_serper(address)
+                save_to_outputs(res_serper, filename_prefix="property_report_serper_audited")
+                save_to_outputs(res_serper, filename_prefix="property_report")
+                st.session_state["result_single"] = res_serper
+                st.session_state["mode"] = "single"
+                st.session_state["address"] = address
+            except Exception as e:
+                st.error(f"Serper live search failed: {e}")
+
+    else:
+        with st.spinner(f"🧠 Querying baseline Gemini model for '{address}'..."):
+            try:
+                res_baseline = search_property_baseline(address)
+                save_to_outputs(res_baseline, filename_prefix="property_report_baseline")
+                save_to_outputs(res_baseline, filename_prefix="property_report")
+                st.session_state["result_single"] = res_baseline
+                st.session_state["mode"] = "single"
+                st.session_state["address"] = address
+            except Exception as e:
+                st.error(f"Baseline query failed: {e}")
+
+
+def _render_hero_metrics(result: dict):
     prop_type = result.get("propertyType") or result.get("propertySubtype") or "Not Specified"
     building_class = result.get("buildingClass") or result.get("constructionClass")
     type_sub = f"Class {building_class}" if building_class else "Public Record"
@@ -169,7 +218,7 @@ if "result" in st.session_state:
         year_sub = "CAD Historic"
 
     apn = result.get("property apn") or result.get("parcelId") or "Unassigned"
-    county = result.get("county") or "County Cad"
+    county = result.get("county") or "County CAD"
 
     owner = result.get("owner name") or "Public Record / Undisclosed"
     ownership = result.get("ownership") or "Deed Record"
@@ -231,24 +280,28 @@ if "result" in st.session_state:
             unsafe_allow_html=True,
         )
 
-    st.write("")
 
-    # --- SUGGESTION 5: DATA COMPLETENESS & VERIFICATION PROGRESS METER ---
-    assessable_fields = [f for f in PROPERTY_SCHEMA_FIELDS if f != "sources"]
-    total_fields = len(assessable_fields)
-    verified_fields = sum(1 for f in assessable_fields if result.get(f) is not None)
-    completeness_pct = int((verified_fields / total_fields) * 100) if total_fields else 0
+def _render_completeness(result: dict):
+    assessable = [f for f in PROPERTY_SCHEMA_FIELDS if f != "sources"]
+    total = len(assessable)
+    verified = sum(1 for f in assessable if result.get(f) is not None)
+    pct = int((verified / total) * 100) if total else 0
 
-    meter_col1, meter_col2 = st.columns([3, 1])
-    with meter_col1:
+    c1, c2 = st.columns([3, 1])
+    with c1:
         st.progress(
-            completeness_pct / 100,
-            text=f"📊 Assessment Record Completeness: {verified_fields} of {total_fields} fields verified ({completeness_pct}%)",
+            pct / 100,
+            text=f"📊 Assessment Record Completeness: {verified} of {total} fields verified ({pct}%)",
         )
-    with meter_col2:
-        if verified_fields >= 15:
+    with c2:
+        if "Serper" in result.get("_engine", ""):
             st.markdown(
-                '<div style="text-align: right; padding-top: 6px;"><span class="badge-verified">🟢 Assessor Records Verified</span></div>',
+                '<div style="text-align: right; padding-top: 6px;"><span class="badge-verified">🛡️ Serper Live Audited</span></div>',
+                unsafe_allow_html=True,
+            )
+        elif verified >= 15:
+            st.markdown(
+                '<div style="text-align: right; padding-top: 6px;"><span class="badge-verified">🟢 Public Assessor Data</span></div>',
                 unsafe_allow_html=True,
             )
         else:
@@ -257,28 +310,172 @@ if "result" in st.session_state:
                 unsafe_allow_html=True,
             )
 
-    st.divider()
 
-    # --- FULL DETAILED REPORT & EXPORT OPTIONS ---
+# --- RENDER RESULTS ---
+if st.session_state.get("mode") == "comparison" and "result_baseline" in st.session_state and "result_serper" in st.session_state:
+    b_res = st.session_state["result_baseline"]
+    s_res = st.session_state["result_serper"]
+
+    st.divider()
+    st.subheader("⚖️ Side-by-Side Comparison: Baseline vs. Serper-Audited Pipeline")
+
+    tab_comp, tab_serper, tab_baseline = st.tabs([
+        "📊 Comparative Delta Matrix",
+        "🌐 Serper-Audited Full Report",
+        "🧠 Baseline Full Report",
+    ])
+
+    with tab_comp:
+        # Comparison Highlights Matrix
+        key_metrics = [
+            ("Property APN", "property apn"),
+            ("County", "county"),
+            ("Building Area (sqft)", "buildingAreaSqft"),
+            ("Year Built", "yearBuilt"),
+            ("Recorded Owner", "owner name"),
+            ("Zoning Code", "zoning"),
+            ("Property Type", "propertyType"),
+            ("Verified Sources Count", "sources"),
+        ]
+
+        matrix_rows = []
+        for label, key in key_metrics:
+            val_base = b_res.get(key)
+            val_serp = s_res.get(key)
+
+            if key == "sources":
+                str_base = f"{len(val_base)} URLs" if isinstance(val_base, list) else "0 URLs"
+                str_serp = f"{len(val_serp)} Live URLs" if isinstance(val_serp, list) else "0 URLs"
+                match_status = "🌐 Live Google Scraped"
+            else:
+                str_base = str(val_base) if val_base is not None else "null (unverified)"
+                str_serp = str(val_serp) if val_serp is not None else "null (unverified)"
+                if str_base == str_serp and str_base != "null (unverified)":
+                    match_status = "✅ Match"
+                elif str_base != str_serp and str_serp != "null (unverified)":
+                    match_status = "✨ Serper Verified"
+                elif str_serp == "null (unverified)" and str_base != "null (unverified)":
+                    match_status = "⚠️ Baseline Guess / Unverified"
+                else:
+                    match_status = "— Both Null"
+
+            matrix_rows.append({
+                "Property Metric": label,
+                "Baseline (Gemini Memory)": str_base,
+                "Serper-Audited (Live Google)": str_serp,
+                "Verification Audit": match_status,
+            })
+
+        df_matrix = pd.DataFrame(matrix_rows)
+        st.dataframe(df_matrix, use_container_width=True, hide_index=True)
+
+        st.caption(
+            "💡 **Audit Insight:** The Baseline solution relies on LLM training memory and may guess values. "
+            "The Serper solution strictly verifies every single field against live Google Search snippets, "
+            "dropping unconfirmed numbers to null to protect financial accuracy."
+        )
+
+        st.divider()
+        col_d1, col_d2 = st.columns(2)
+        with col_d1:
+            st.download_button(
+                label="📥 Download Serper-Audited Report (JSON)",
+                data=to_json_string(s_res),
+                file_name="property_report_serper_audited.json",
+                mime="application/json",
+                use_container_width=True,
+            )
+        with col_d2:
+            st.download_button(
+                label="📥 Download Baseline Report (JSON)",
+                data=to_json_string(b_res),
+                file_name="property_report_baseline.json",
+                mime="application/json",
+                use_container_width=True,
+            )
+
+    with tab_serper:
+        st.markdown(f'<div class="badge-engine">{s_res.get("_engine", "Serper-Audited Engine")}</div>', unsafe_allow_html=True)
+        _render_hero_metrics(s_res)
+        st.write("")
+        _render_completeness(s_res)
+        st.divider()
+        st.markdown(format_as_markdown(s_res))
+        st.divider()
+        c1, c2 = st.columns(2)
+        with c1:
+            st.download_button(
+                label="📥 Download Serper JSON",
+                data=to_json_string(s_res),
+                file_name="property_report_serper_audited.json",
+                mime="application/json",
+                use_container_width=True,
+            )
+        with c2:
+            st.download_button(
+                label="📥 Download Serper Markdown",
+                data=to_markdown_string(s_res),
+                file_name="property_report_serper_audited.md",
+                mime="text/markdown",
+                use_container_width=True,
+            )
+
+    with tab_baseline:
+        st.markdown(f'<div class="badge-engine">{b_res.get("_engine", "Baseline Engine")}</div>', unsafe_allow_html=True)
+        _render_hero_metrics(b_res)
+        st.write("")
+        _render_completeness(b_res)
+        st.divider()
+        st.markdown(format_as_markdown(b_res))
+        st.divider()
+        c1, c2 = st.columns(2)
+        with c1:
+            st.download_button(
+                label="📥 Download Baseline JSON",
+                data=to_json_string(b_res),
+                file_name="property_report_baseline.json",
+                mime="application/json",
+                use_container_width=True,
+            )
+        with c2:
+            st.download_button(
+                label="📥 Download Baseline Markdown",
+                data=to_markdown_string(b_res),
+                file_name="property_report_baseline.md",
+                mime="text/markdown",
+                use_container_width=True,
+            )
+
+elif st.session_state.get("mode") == "single" and "result_single" in st.session_state:
+    result = st.session_state["result_single"]
+
+    st.divider()
+    st.markdown(f'<div class="badge-engine">{result.get("_engine", "Property Intelligence")}</div>', unsafe_allow_html=True)
+
+    _render_hero_metrics(result)
+    st.write("")
+    _render_completeness(result)
+
+    st.divider()
     report_md = format_as_markdown(result)
     st.markdown(report_md)
 
     st.divider()
-
+    prefix = "property_report_serper_audited" if "Serper" in result.get("_engine", "") else "property_report_baseline"
     col1, col2 = st.columns(2)
     with col1:
         st.download_button(
-            label="📥 Download JSON",
+            label=f"📥 Download {prefix}.json",
             data=to_json_string(result),
-            file_name="property_report.json",
+            file_name=f"{prefix}.json",
             mime="application/json",
             use_container_width=True,
         )
     with col2:
         st.download_button(
-            label="📥 Download Markdown",
+            label=f"📥 Download {prefix}.md",
             data=to_markdown_string(result),
-            file_name="property_report.md",
+            file_name=f"{prefix}.md",
             mime="text/markdown",
             use_container_width=True,
         )

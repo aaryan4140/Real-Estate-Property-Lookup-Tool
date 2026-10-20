@@ -17,11 +17,10 @@ def to_markdown_string(data: dict[str, Any]) -> str:
     return format_as_markdown(data)
 
 
-def save_to_outputs(data: dict[str, Any]) -> None:
-    """Clear the outputs folder and save fresh JSON + MD files."""
+def save_to_outputs(data: dict[str, Any], filename_prefix: str = "property_report") -> None:
+    """Save formatted JSON and Markdown reports to outputs folder."""
     OUTPUTS_DIR.mkdir(exist_ok=True)
-    for f in OUTPUTS_DIR.iterdir():
-        if f.is_file():
-            f.unlink()
-    (OUTPUTS_DIR / "property_report.json").write_text(to_json_string(data) + "\n", encoding="utf-8")
-    (OUTPUTS_DIR / "property_report.md").write_text(to_markdown_string(data) + "\n", encoding="utf-8")
+    json_path = OUTPUTS_DIR / f"{filename_prefix}.json"
+    md_path = OUTPUTS_DIR / f"{filename_prefix}.md"
+    json_path.write_text(to_json_string(data) + "\n", encoding="utf-8")
+    md_path.write_text(to_markdown_string(data) + "\n", encoding="utf-8")

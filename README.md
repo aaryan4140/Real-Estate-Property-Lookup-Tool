@@ -42,29 +42,31 @@ The tool enables users to enter a property address, queries Gemini to retrieve f
 
 ```
 Real_State/
-├── app.py                      # Streamlit web application frontend and state manager
-├── requirements.txt            # Python dependencies (Streamlit, Google GenAI, python-dotenv)
+├── app.py                      # Streamlit web application with multi-engine selection & comparative matrix
+├── requirements.txt            # Python dependencies (Streamlit, Google GenAI, python-dotenv, pandas)
 ├── .env.example                # Environment variables template (copy to .env)
 ├── .gitignore                  # Git exclusions (.env, private docs, outputs, cache)
 ├── llm/
-│   └── gemini_client.py        # Official Google GenAI Client wrapper & robust JSON decoder
+│   ├── gemini_baseline.py      # Baseline Engine: Direct Gemini LLM synthesis (pure memory)
+│   ├── serper_agent_client.py  # Serper Engine: Live Google Search + Dual-Agent Compliance Audit
+│   └── gemini_client.py        # Centralized client dispatcher
 ├── prompts/
 │   └── property_prompt.py      # 89-field real estate schema & extraction prompt
 └── utils/
+    ├── search_engine.py        # Multi-cluster Google search scraper via Serper API
     ├── formatter.py            # Converts raw JSON into a categorized, 13-section Markdown report
-    └── exporter.py             # Formats and saves property_report.json and property_report.md
+    └── exporter.py             # Formats and saves JSON and Markdown reports with custom prefixes
 ```
 
 ---
 
 ## 🚀 Key Features
 
-- **Interactive Executive Dashboard ([app.py](file:///Users/aaryantiwari/Desktop/My_Folder/Real_State/app.py)):** Features quick-select sample property chips for 1-click lookups, responsive hero KPI metric cards (Property Type, Building Area, Year Built, APN, Owner), and an assessment completeness progress meter with verification badges.
-- **Enterprise LLM Integration ([llm/gemini_client.py](file:///Users/aaryantiwari/Desktop/My_Folder/Real_State/llm/gemini_client.py)):** Powered by Google's Gemini models using the official `google-genai` SDK, utilizing low temperature (`0.2`) for factual retrieval and schema conformity.
-- **Fault-Tolerant JSON Parsing:** Custom streaming parser in [llm/gemini_client.py](file:///Users/aaryantiwari/Desktop/My_Folder/Real_State/llm/gemini_client.py) strips markdown code fences and uses `json.JSONDecoder().raw_decode()` to extract valid JSON even if accompanied by surrounding text.
-- **Institutional 89-Field Schema ([prompts/property_prompt.py](file:///Users/aaryantiwari/Desktop/My_Folder/Real_State/prompts/property_prompt.py)):** Covers comprehensive property data ranging from basic parcel APNs and zoning to structural framing, HVAC, utilities, and flood panels.
-- **Sectioned Markdown Presentation ([utils/formatter.py](file:///Users/aaryantiwari/Desktop/My_Folder/Real_State/utils/formatter.py)):** Organizes populated fields into 13 logical appraisal sections while omitting unverified fields to keep reports clean and readable.
-- **Dual Format Export ([utils/exporter.py](file:///Users/aaryantiwari/Desktop/My_Folder/Real_State/utils/exporter.py)):** Provides one-click browser download buttons for both JSON and Markdown, while automatically persisting copies to the local `outputs/` folder.
+- **Multi-Engine Intelligence & Side-by-Side Comparison ([app.py](file:///Users/aaryantiwari/Desktop/My_Folder/Real_State/app.py)):** Switch seamlessly between the **Baseline Engine** (pure Gemini memory synthesis) and the **Serper-Powered Dual-Agent Engine** (live Google search + zero-temperature compliance audit), or run both concurrently to view an interactive side-by-side delta matrix.
+- **Dual-Agent Verification Pipeline:** Agent 1 (The Extractor) maps live Google search snippets into the 89-field schema, while Agent 2 (The Compliance Auditor at `temperature=0.0`) cross-examines every number against the raw web text to eliminate hallucinations.
+- **Multi-Cluster Live Search ([utils/search_engine.py](file:///Users/aaryantiwari/Desktop/My_Folder/Real_State/utils/search_engine.py)):** Scrapes data across 3 targeted clusters (CAD tax rolls, commercial offering brochures, municipal zoning & FEMA maps) via Serper.
+- **Interactive Executive Dashboard:** Features quick-select sample property chips for 1-click lookups, responsive hero KPI metric cards (Property Type, Building Area, Year Built, APN, Owner), and an assessment completeness progress meter with verification badges.
+- **Independent Dual-Format Exports:** Download distinct, timestamped reports (`property_report_baseline.json/.md` vs `property_report_serper_audited.json/.md`) with automated local persistence in `outputs/`.
 
 ---
 
