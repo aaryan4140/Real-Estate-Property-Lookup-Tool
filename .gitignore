@@ -19,6 +19,7 @@ Thumbs.db
 # Runtime Output & Billing Directories
 outputs/
 billing/
+Testing/
 
 # Excluded Specific Documents
 Documents/cad_real_estate_analysis.md

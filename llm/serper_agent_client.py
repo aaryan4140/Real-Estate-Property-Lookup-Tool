@@ -67,19 +67,28 @@ def search_property_serper(address: str) -> dict[str, Any]:
     fields_list = ", ".join(f'"{f}"' for f in PROPERTY_SCHEMA_FIELDS)
 
     # Step 2: Agent 1 (The Multi-Source Extraction Specialist)
-    agent1_prompt = f"""You are Agent 1 (Senior Real Estate Data Extraction Specialist).
-Extract all verifiable property appraisal, structural, and legal details using ONLY the live Google search snippets provided below.
+    agent1_prompt = f"""You are Agent 1 (Senior Real Estate Data Extraction Specialist for an institutional financial client).
+Extract all factual property appraisal, structural, tax, assessment, and legal details using BOTH the live search snippets AND the full scraped webpage tables provided below.
 
 PROPERTY ADDRESS: {clean_address}
 
-RAW LIVE GOOGLE SEARCH CORPUS:
-{scraped_corpus if scraped_corpus else "No search snippets found."}
+RAW LIVE WEB SCRAPED CORPUS & FULL WEBPAGE TABLES:
+{scraped_corpus if scraped_corpus else "No web results found."}
 
-STRICT INSTRUCTIONS:
-1. Populate as many schema fields as possible, but ONLY using facts explicitly found in the web snippets.
-2. If a field is NOT explicitly supported or cannot be confirmed from the text, return null. DO NOT guess or fabricate.
-3. The "sources" field must be a JSON array containing the actual URLs present in the search snippets.
-4. Return raw JSON only with NO markdown fences.
+EXTRACTION RULES:
+1. Examine Section 1 (Search Snippets) AND Section 2 (Full Scraped Webpage Tables & Detail Pages).
+2. Look specifically for:
+   - "property apn" / "parcelId": Extract from "Account Number :", "APN", "Parcel ID", or county tax roll.
+   - "legalDescription": Extract from "The legal description -", "Legal:", or deed abstract.
+   - "buildingAreaSqft" / "netRentableAreaSqft": Extract gross building area or net rentable square footage.
+   - "siteAreaAcres" / "parcelSizeAcres": Extract land size / lot area (convert sq ft to acres if provided in sf: 1 acre = 43,560 sq ft).
+   - "yearBuilt", "remodeledYear", "numberOfStories", "elevators", "parking".
+   - "county", "city", "state", "postalCode".
+   - "zoning", "zoningAuthority", "municipality zoning".
+   - "owner name", "ownership".
+3. If a field is NOT found or verified in the text, return null. DO NOT guess or fabricate.
+4. The "sources" field must be a JSON array containing the actual URLs present in the text.
+5. Return raw JSON only with NO markdown fences.
 
 SCHEMA FIELDS TO POPULATE:
 {fields_list}
@@ -92,16 +101,17 @@ Return the raw JSON object now:"""
     # Step 3: Agent 2 (The Compliance & Factual Verification Auditor)
     # temperature=0.0 enforces zero creativity / zero hallucination
     agent2_prompt = f"""You are Agent 2 (Senior Real Estate Compliance Auditor for an institutional financial client).
-Audit Agent 1's proposed JSON against the RAW LIVE GOOGLE SEARCH CORPUS to guarantee 100% factual accuracy.
+Audit Agent 1's proposed JSON against the RAW LIVE WEB SCRAPED CORPUS & FULL WEBPAGE TABLES to guarantee 100% factual accuracy.
 
 AUDIT RULES:
-1. Cross-examine every non-null field against the RAW LIVE GOOGLE SEARCH CORPUS.
-2. If any value (such as APN, square footage, year built, owner, or zoning) is NOT explicitly verified in the text, you MUST change it to null.
-3. Ensure building square footage is not confused with lot/site acreage.
-4. The 'sources' array must contain only valid URLs from the scraped text.
-5. Return ONLY the audited, verified raw JSON object. No explanation, no markdown fences.
+1. Cross-examine every non-null field against the RAW LIVE WEB CORPUS (including Section 1 Snippets and Section 2 Full Webpage Tables).
+2. If a value (such as Account Number/APN, Legal Description, Gross/Net SF, Land Size, Year Built, Stories) IS supported by the text or tables, KEEP IT and ensure high fidelity.
+3. If any value is NOT explicitly verified in the text or tables, you MUST change it to null.
+4. Do not confuse building square footage with lot/land square footage.
+5. The 'sources' array must contain only valid URLs from the scraped text.
+6. Return ONLY the audited, verified raw JSON object. No explanation, no markdown fences.
 
-RAW LIVE GOOGLE SEARCH CORPUS:
+RAW LIVE WEB SCRAPED CORPUS & FULL WEBPAGE TABLES:
 {scraped_corpus}
 
 AGENT 1 PROPOSED JSON:
